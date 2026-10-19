@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+@theme {
+  /* Survey theme */
+  --color-navy: #1a2332;
+  --color-navy-light: #2a3a52;
+  --color-survey-blue: #153d81;
+  --color-survey-blue-light: #dbeafe;
+  --color-survey-blue-hover: #1d4ed8;
+  --color-gold-accent: #d4a843;
+
+  /* Admin theme */
+  --color-admin-bg: #FDFCFC;
+  --color-admin-panel: #FDFCFC;
+  --color-admin-card: #FDFCFC;
+  --color-admin-hover: #A1BFE9;
+  --color-admin-border: #d4a843;
+  --color-admin-gold: #d4a843;
+  --color-admin-text: #000000;
+  --color-admin-muted: #c4a882FFFF00;
+  --color-admin-dark: #122B4F;
+  --color-admin-input: #FDFCFC;
+  --color-admin-selected: #A1BFE9;
+
+  /* Star rating */
+  --color-star: #f59e0b;
+  --color-star-empty: #d1d5db;
+}
+
+/* Scrollbar styling for admin */
+.admin-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+.admin-scrollbar::-webkit-scrollbar-track {
+  background: var(--color-admin-dark);
+}
+.admin-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-admin-border);
+  border-radius: 4px;
+}
+
+/* Survey progress bar */
+.progress-bar {
+  transition: width 0.3s ease-in-out;
+}
+
+/* Placeholder image fallback */
+.img-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e5e7eb;
+  color: #9ca3af;
+  font-size: 0.75rem;
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}

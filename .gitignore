@@ -1,0 +1,41 @@
+
+# Dependencies
+node_modules/
+
+# Next.js generated files
+.next/
+out/
+build/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Local backup and credential backup files
+*.backup
+*.dump
+*.bak
+
+# Git and deployment tooling
+.vercel/
+.netlify/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# TypeScript generated files
+*.tsbuildinfo
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+
+# Local database config containing hardcoded credentials
+/drizzle.config.json
+
+# Downloaded project archives
+*.zip
