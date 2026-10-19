@@ -1,4 +1,4 @@
-# COGNĪTA — By DICT Iligan
+# COGNĪTA
 
 Computer Training Room Feedback Collection and Management System.
 
