@@ -9,6 +9,7 @@ export default function SetupPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [setupKey, setSetupKey] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -29,7 +30,7 @@ export default function SetupPage() {
       const res = await fetch("/api/auth/setup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, displayName }),
+        body: JSON.stringify({ username, password, displayName, setupKey }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -120,6 +121,22 @@ export default function SetupPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Username
             </label>
+            {process.env.NODE_ENV === "production" && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                One-time Setup Key
+              </label>
+              <input
+                type="password"
+                value={setupKey}
+                onChange={(e) => setSetupKey(e.target.value)}
+                autoComplete="off"
+                required
+                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-survey-blue outline-none"
+                placeholder="Enter the setup key"
+              />
+            </div>
+          )}
             <input
               type="text"
               value={username}
