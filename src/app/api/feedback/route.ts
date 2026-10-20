@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { feedbackRecords } from "@/db/schema";
-import { eq, desc, asc, ilike, and, gte, lte, sql, SQL } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { getSession } from "@/lib/auth";
+import {
+  buildFeedbackOrderBy,
+  buildFeedbackWhereClause,
+} from "@/lib/feedback-query";
 
 export async function POST(request: NextRequest) {
   try {
@@ -69,6 +73,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const now = new Date();
+
     const [record] = await db
       .insert(feedbackRecords)
       .values({
@@ -100,6 +106,8 @@ export async function POST(request: NextRequest) {
         featuresWanted: body.featuresWanted || null,
         changeImprovement: body.changeImprovement || null,
         mostImportantImprovement: body.mostImportantImprovement || null,
+        submittedAt: now,
+        createdAt: now,
       })
       .returning({ id: feedbackRecords.id, sessionId: feedbackRecords.sessionId });
 
@@ -145,49 +153,14 @@ export async function GET(request: NextRequest) {
   const dateFrom = url.searchParams.get("dateFrom") || "";
   const dateTo = url.searchParams.get("dateTo") || "";
 
-  const conditions: SQL[] = [];
-
-  if (search) {
-    conditions.push(
-      sql`(${feedbackRecords.respondentName} ILIKE ${"%" + search + "%"} OR ${feedbackRecords.profession} ILIKE ${"%" + search + "%"} OR ${feedbackRecords.computerId} ILIKE ${"%" + search + "%"})`
-    );
-  }
-
-  if (filterField && filterValue) {
-    if (filterField === "computerId") {
-      conditions.push(ilike(feedbackRecords.computerId, `%${filterValue}%`));
-    } else if (filterField === "profession") {
-      conditions.push(ilike(feedbackRecords.profession, `%${filterValue}%`));
-    } else if (filterField === "hasTechnicalIssues") {
-      conditions.push(
-        eq(feedbackRecords.hasTechnicalIssues, filterValue === "true")
-      );
-    } else if (filterField === "overallExperience") {
-      conditions.push(
-        eq(feedbackRecords.overallExperience, parseInt(filterValue))
-      );
-    }
-  }
-
-  if (dateFrom) {
-    conditions.push(gte(feedbackRecords.submittedAt, new Date(dateFrom)));
-  }
-  if (dateTo) {
-    conditions.push(lte(feedbackRecords.submittedAt, new Date(dateTo + "T23:59:59")));
-  }
-
-  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-
-  // Sort
-  type FeedbackColumn = typeof feedbackRecords.submittedAt | typeof feedbackRecords.respondentName | typeof feedbackRecords.overallExperience | typeof feedbackRecords.profession;
-  const sortColumns: Record<string, FeedbackColumn> = {
-    submittedAt: feedbackRecords.submittedAt,
-    respondentName: feedbackRecords.respondentName,
-    overallExperience: feedbackRecords.overallExperience,
-    profession: feedbackRecords.profession,
-  };
-  const sortCol = sortColumns[sortField] || feedbackRecords.submittedAt;
-  const orderBy = sortDir === "asc" ? asc(sortCol) : desc(sortCol);
+  const whereClause = buildFeedbackWhereClause({
+    search,
+    filterField,
+    filterValue,
+    dateFrom,
+    dateTo,
+  });
+  const orderBy = buildFeedbackOrderBy(sortField, sortDir);
 
   const [records, totalResult] = await Promise.all([
     db
