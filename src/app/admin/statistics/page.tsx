@@ -324,7 +324,7 @@ export default function StatisticsPage() {
                   <button
                     onClick={() => handleExport("excel")}
                     disabled={anyExporting || loading}
-                    className="inline-flex items-center gap-2 text-sm font-medium text-white bg-[#107C41] border border-[#107C41] rounded-lg px-4 py-2 hover:bg-[#0c5e31] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="inline-flex items-center gap-2 text-sm font-medium text-admin-text bg-admin-card border border-admin-border rounded-lg px-4 py-2 hover:bg-admin-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <ExcelIcon className="w-4 h-4" />
                     {exportingExcel ? "Exporting..." : "Export to Excel (.xlsx)"}
