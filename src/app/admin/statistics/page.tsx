@@ -197,92 +197,112 @@ export default function StatisticsPage() {
 
         <div className="flex flex-1">
           {/* Sidebar */}
-          <div className="w-64 bg-admin-panel/95 border-r border-admin-border p-4 flex flex-col gap-4 backdrop-blur-sm shrink-0">
-            <div>
-              <h3 className="text-xs font-bold text-admin-gold mb-2 uppercase tracking-wider">Filters</h3>
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">From Date (PHT)</label>
-                  <input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                    className="w-full bg-admin-input border border-admin-border rounded-lg px-3 py-2 text-sm text-admin-text outline-none focus:border-admin-gold"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">To Date (PHT)</label>
-                  <input
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
-                    className="w-full bg-admin-input border border-admin-border rounded-lg px-3 py-2 text-sm text-admin-text outline-none focus:border-admin-gold"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Computer</label>
-                  <select
-                    value={computerId}
-                    onChange={(e) => setComputerId(e.target.value)}
-                    className="w-full bg-admin-input border border-admin-border rounded-lg px-3 py-2 text-sm text-admin-text outline-none focus:border-admin-gold"
-                  >
-                    <option value="">All Computers</option>
-                    {availableComputers.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-                {(dateFrom || dateTo || computerId) && (
-                  <button
-                    onClick={() => {
-                      setDateFrom("");
-                      setDateTo("");
-                      setComputerId("");
-                    }}
-                    className="w-full text-xs py-1.5 rounded border border-admin-border text-slate-700 hover:text-admin-gold transition-colors mt-2"
-                  >
-                    Clear Filters
-                  </button>
-                )}
-              </div>
+          <div className="w-64 border-r border-admin-border p-4 flex flex-col gap-4 backdrop-blur-sm shrink-0 relative overflow-hidden">
+            {/* Sidebar background image — behind everything */}
+            <div
+              className="absolute inset-0 z-0 pointer-events-none"
+              aria-hidden="true"
+            >
+              <PlaceholderImage
+                src={ASSETS.adminBackgroundside}
+                alt=""
+                className="w-full h-full object-cover pointer-events-none"
+                fallbackText=""
+                fallbackClassName="bg-admin-dark"
+              />
+              {/* Optional dim overlay so text stays readable without lowering image opacity too much */}
+              <div className="absolute inset-0 bg-admin-panel/70" />
             </div>
 
-            <div className="mt-auto">
-              <div className="bg-admin-card border border-admin-border rounded-xl p-4 text-center">
-                <div className="w-16 h-16 rounded-full bg-admin-dark border-2 border-admin-gold mx-auto mb-3 flex items-center justify-center">
-                  <PlaceholderImage
-                    src={ASSETS.adminAvatar}
-                    alt="Admin"
-                    width={48}
-                    height={48}
-                    className="rounded-full"
-                    fallbackText="👤"
-                    fallbackClassName="rounded-full text-2xl bg-transparent"
-                  />
+            {/* All sidebar content sits above the background */}
+            <div className="relative z-10 flex flex-col gap-4 h-full flex-1">
+              <div>
+                <h3 className="text-xs font-bold text-admin-gold mb-2 uppercase tracking-wider">Filters</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">From Date (PHT)</label>
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                      className="w-full bg-admin-input border border-admin-border rounded-lg px-3 py-2 text-sm text-admin-text outline-none focus:border-admin-gold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">To Date (PHT)</label>
+                    <input
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)}
+                      className="w-full bg-admin-input border border-admin-border rounded-lg px-3 py-2 text-sm text-admin-text outline-none focus:border-admin-gold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Computer</label>
+                    <select
+                      value={computerId}
+                      onChange={(e) => setComputerId(e.target.value)}
+                      className="w-full bg-admin-input border border-admin-border rounded-lg px-3 py-2 text-sm text-admin-text outline-none focus:border-admin-gold"
+                    >
+                      <option value="">All Computers</option>
+                      {availableComputers.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {(dateFrom || dateTo || computerId) && (
+                    <button
+                      onClick={() => {
+                        setDateFrom("");
+                        setDateTo("");
+                        setComputerId("");
+                      }}
+                      className="bg-admin-bg w-full text-xs py-1.5 rounded border border-admin-border text-slate-700 hover:text-admin-gold transition-colors mt-2"
+                    >
+                      Clear Filters
+                    </button>
+                  )}
                 </div>
-                <p className="text-admin-gold font-medium text-sm">{adminName}</p>
-                <p className="text-slate-600 text-xs">Administrator</p>
               </div>
 
-              <div className="mt-3 space-y-2">
-                <button
-                  onClick={() => router.push("/admin")}
-                  className="w-full text-xs py-2 rounded-lg border border-admin-border text-slate-700 hover:text-admin-gold hover:border-admin-gold transition-colors"
-                >
-                  📋 Dashboard
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="w-full text-xs py-2 rounded-lg border border-admin-border text-slate-700 hover:text-admin-gold hover:border-admin-gold transition-colors"
-                >
-                  ← Back to Login
-                </button>
-                <button
-                  onClick={() => setShowExitDialog(true)}
-                  className="w-full text-xs py-2 rounded-lg border border-admin-border text-slate-700 hover:text-red-500 hover:border-red-400 transition-colors"
-                >
-                  ✕ Exit COGNĪTA
-                </button>
+              {/* Admin profile card */}
+              <div className="mt-auto">
+                <div className="bg-admin-card border border-admin-border rounded-xl p-4 text-center">
+                  <div className="w-16 h-16 rounded-full bg-admin-dark border-2 border-admin-gold mx-auto mb-3 flex items-center justify-center">
+                    <PlaceholderImage
+                      src={ASSETS.adminAvatar}
+                      alt="Admin"
+                      width={64}
+                      height={64}
+                      className="w-full h-full object-cover rounded-full"
+                      fallbackText="👤"
+                      fallbackClassName="rounded-full text-2xl bg-transparent"
+                    />
+                  </div>
+                  <p className="text-admin-gold font-medium text-sm">{adminName}</p>
+                  <p className="text-admin-muted text-xs">Administrator</p>
+                </div>
+
+                <div className="mt-3 space-y-2">
+                  <button
+                    onClick={() => router.push("/admin")}
+                    className="bg-admin-bg w-full text-xs py-2 rounded-lg border border-admin-border text-admin-muted hover:text-admin-gold hover:border-admin-gold transition-colors"
+                  >
+                    📋 Dashboard
+                  </button>
+                  <button
+                    onClick={handleLogout}
+                    className="bg-admin-bg w-full text-xs py-2 rounded-lg border border-admin-border text-admin-muted hover:text-admin-gold hover:border-admin-gold transition-colors"
+                  >
+                    ← Back to Login
+                  </button>
+                  <button
+                    onClick={() => setShowExitDialog(true)}
+                    className="bg-admin-bg w-full text-xs py-2 rounded-lg border border-admin-border text-admin-muted hover:text-red-400 hover:border-red-400 transition-colors"
+                  >
+                    ✕ Exit COGNĪTA
+                  </button>
+                </div>
               </div>
             </div>
           </div>
