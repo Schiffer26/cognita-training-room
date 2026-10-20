@@ -3,6 +3,11 @@ import { db } from "@/db";
 import { getSession } from "@/lib/auth";
 import { sql } from "drizzle-orm";
 import {
+  MANILA_TIMEZONE,
+  parseDateEnd,
+  parseDateStart,
+} from "@/lib/feedback-query";
+import {
   Document,
   Packer,
   Paragraph,
@@ -65,8 +70,14 @@ export async function GET(request: NextRequest) {
 
   try {
     let baseWhere = sql`WHERE 1=1`;
-    if (dateFrom) baseWhere = sql`${baseWhere} AND submitted_at >= ${new Date(dateFrom)}`;
-    if (dateTo) baseWhere = sql`${baseWhere} AND submitted_at <= ${new Date(dateTo + "T23:59:59")}`;
+    const startDate = parseDateStart(dateFrom);
+    const endDate = parseDateEnd(dateTo);
+    if (startDate) {
+      baseWhere = sql`${baseWhere} AND submitted_at >= ${startDate.toISOString()}`;
+    }
+    if (endDate) {
+      baseWhere = sql`${baseWhere} AND submitted_at <= ${endDate.toISOString()}`;
+    }
     if (computerId) baseWhere = sql`${baseWhere} AND computer_id = ${computerId}`;
 
     const distWhere = sql`${baseWhere} AND overall_experience IS NOT NULL`;
@@ -133,7 +144,11 @@ export async function GET(request: NextRequest) {
               alignment: AlignmentType.CENTER,
               spacing: { after: 400 },
               children: [
-                new TextRun({ text: `Generated on: ${new Date().toLocaleString("en-PH")}\n`, size: 20, color: "666666" }),
+                new TextRun({
+                  text: `Generated on: ${new Date().toLocaleString("en-PH", { timeZone: MANILA_TIMEZONE })} PHT\n`,
+                  size: 20,
+                  color: "666666",
+                }),
                 new TextRun({ text: `Filters applied: ${filterText}`, size: 20, color: "666666" })
               ],
             }),

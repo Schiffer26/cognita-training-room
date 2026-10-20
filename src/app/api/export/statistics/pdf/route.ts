@@ -3,6 +3,11 @@ import { db } from "@/db";
 import { getSession } from "@/lib/auth";
 import { sql } from "drizzle-orm";
 import { jsPDF } from "jspdf";
+import {
+  MANILA_TIMEZONE,
+  parseDateEnd,
+  parseDateStart,
+} from "@/lib/feedback-query";
 
 export async function GET(request: NextRequest) {
   const session = await getSession();
@@ -17,8 +22,14 @@ export async function GET(request: NextRequest) {
 
   try {
     let baseWhere = sql`WHERE 1=1`;
-    if (dateFrom) baseWhere = sql`${baseWhere} AND submitted_at >= ${new Date(dateFrom)}`;
-    if (dateTo) baseWhere = sql`${baseWhere} AND submitted_at <= ${new Date(dateTo + "T23:59:59")}`;
+    const startDate = parseDateStart(dateFrom);
+    const endDate = parseDateEnd(dateTo);
+    if (startDate) {
+      baseWhere = sql`${baseWhere} AND submitted_at >= ${startDate.toISOString()}`;
+    }
+    if (endDate) {
+      baseWhere = sql`${baseWhere} AND submitted_at <= ${endDate.toISOString()}`;
+    }
     if (computerId) baseWhere = sql`${baseWhere} AND computer_id = ${computerId}`;
 
     const distWhere = sql`${baseWhere} AND overall_experience IS NOT NULL`;
@@ -95,7 +106,12 @@ export async function GET(request: NextRequest) {
     pdf.setFontSize(10);
     pdf.setFont("helvetica", "normal");
     pdf.setTextColor(100, 100, 100);
-    pdf.text(`Generated on: ${new Date().toLocaleString("en-PH")}`, pageWidth / 2, y, { align: "center" });
+    pdf.text(
+      `Generated on: ${new Date().toLocaleString("en-PH", { timeZone: MANILA_TIMEZONE })} PHT`,
+      pageWidth / 2,
+      y,
+      { align: "center" }
+    );
     y += 5;
     pdf.text(`Filters applied: ${filterText}`, pageWidth / 2, y, { align: "center" });
     y += 12;

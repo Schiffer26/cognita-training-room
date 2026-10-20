@@ -28,6 +28,18 @@ function PdfIcon({ className = "w-4 h-4" }: { className?: string }) {
   );
 }
 
+function ExcelIcon({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="3" y="2" width="18" height="20" rx="2" fill="#107C41" />
+      <path
+        d="M8.2 7h2.4l1.4 3.1L13.4 7h2.4l-2.5 4.9L16 17h-2.4l-1.6-3.4L10.4 17H8l2.7-5.1L8.2 7z"
+        fill="white"
+      />
+    </svg>
+  );
+}
+
   function TrashIcon({ className = "w-4 h-4" }: { className?: string }) {
   return (
     <svg
@@ -50,7 +62,7 @@ function PdfIcon({ className = "w-4 h-4" }: { className?: string }) {
 
 //until here
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ASSETS } from "@/config/assets";
 import PlaceholderImage from "@/components/PlaceholderImage";
@@ -88,6 +100,8 @@ interface FeedbackRecord {
   createdAt: string;
 }
 
+type ExcelExportMode = "selected" | "filtered" | "all";
+
 export default function AdminDashboard() {
   const router = useRouter();
   const [authenticated, setAuthenticated] = useState(false);
@@ -101,13 +115,20 @@ export default function AdminDashboard() {
   const [sortDir, setSortDir] = useState("desc");
   const [filterField, setFilterField] = useState("");
   const [filterValue, setFilterValue] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [loading, setLoading] = useState(true);
   const [selectedRecord, setSelectedRecord] = useState<FeedbackRecord | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [exportingMode, setExportingMode] = useState<ExcelExportMode | null>(null);
+  const [exportError, setExportError] = useState("");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteSuccess, setDeleteSuccess] = useState(false);
   const [showExitDialog, setShowExitDialog] = useState(false);
   const [showFullDetails, setShowFullDetails] = useState(false);
   const [detailPage, setDetailPage] = useState(0);
+
+  const selectAllRef = useRef<HTMLInputElement | null>(null);
 
   // Check auth
   useEffect(() => {
@@ -124,8 +145,7 @@ export default function AdminDashboard() {
       .catch(() => router.push("/"));
   }, [router]);
 
-  const fetchRecords = useCallback(async () => {
-    setLoading(true);
+  const loadRecords = useCallback(async () => {
     try {
       const params = new URLSearchParams({
         page: String(page),
@@ -135,6 +155,8 @@ export default function AdminDashboard() {
         sortDir,
         filterField,
         filterValue,
+        dateFrom,
+        dateTo,
       });
       const res = await fetch(`/api/feedback?${params}`);
       const data = await res.json();
@@ -147,23 +169,86 @@ export default function AdminDashboard() {
       // ignore
     }
     setLoading(false);
-  }, [page, search, sortField, sortDir, filterField, filterValue]);
+  }, [page, search, sortField, sortDir, filterField, filterValue, dateFrom, dateTo]);
 
   useEffect(() => {
-    if (authenticated) fetchRecords();
-  }, [authenticated, fetchRecords]);
+    if (!authenticated) return;
+    let active = true;
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: "10",
+      search,
+      sortField,
+      sortDir,
+      filterField,
+      filterValue,
+      dateFrom,
+      dateTo,
+    });
+    fetch(`/api/feedback?${params}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!active) return;
+        if (data) {
+          setRecords(data.records);
+          setTotal(data.total);
+          setTotalPages(data.totalPages);
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [authenticated, page, search, sortField, sortDir, filterField, filterValue, dateFrom, dateTo]);
+
+  const visibleIds = records.map((r) => r.id);
+  const visibleSelectedCount = visibleIds.filter((id) => selectedIds.includes(id)).length;
+  const allVisibleSelected = visibleIds.length > 0 && visibleSelectedCount === visibleIds.length;
+  const someVisibleSelected = visibleSelectedCount > 0 && visibleSelectedCount < visibleIds.length;
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someVisibleSelected;
+    }
+  }, [someVisibleSelected]);
+
+  const toggleSelectRecord = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAllVisible = () => {
+    if (allVisibleSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !visibleIds.includes(id)));
+    } else {
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...visibleIds])));
+    }
+  };
+
+  const resetPaginationAndSelection = () => {
+    setSelectedIds([]);
+    setPage(1);
+  };
 
   const handleDelete = async () => {
     if (!selectedRecord) return;
+    const deletedId = selectedRecord.id;
     try {
-      const res = await fetch(`/api/feedback/${selectedRecord.id}`, {
+      const res = await fetch(`/api/feedback/${deletedId}`, {
         method: "DELETE",
       });
       if (res.ok) {
         setShowDeleteDialog(false);
+        setShowFullDetails(false);
         setDeleteSuccess(true);
         setSelectedRecord(null);
-        fetchRecords();
+        setSelectedIds((prev) => prev.filter((id) => id !== deletedId));
+        setLoading(true);
+        void loadRecords();
       }
     } catch {
       // ignore
@@ -201,8 +286,54 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleExportExcel = async (mode: ExcelExportMode) => {
+    setExportError("");
+    if (mode === "selected" && selectedIds.length === 0) {
+      setExportError("Please select at least one record checkbox before exporting selected entries.");
+      return;
+    }
+
+    setExportingMode(mode);
+    try {
+      const payload =
+        mode === "selected"
+          ? { mode: "selected" as const, ids: selectedIds, sortField, sortDir }
+          : mode === "filtered"
+          ? { mode: "filtered" as const, search, filterField, filterValue, dateFrom, dateTo, sortField, sortDir }
+          : { mode: "all" as const, sortField, sortDir };
+
+      const res = await fetch("/api/export/excel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => null);
+        throw new Error(errBody?.error || "Failed to generate Excel export.");
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const modeSlug = mode === "selected" ? "Selected" : mode === "filtered" ? "Filtered" : "All";
+      const manilaDate = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+      a.href = url;
+      a.download = `COGNITA-Feedback-${modeSlug}-${manilaDate}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+      setExportError(err instanceof Error ? err.message : "Failed to export Excel workbook.");
+    } finally {
+      setExportingMode(null);
+    }
+  };
+
+  const hasActiveFilters = Boolean(search.trim() || (filterField && filterValue) || dateFrom || dateTo);
+
   const formatDate = (d: string) =>
     new Date(d).toLocaleDateString("en-PH", {
+      timeZone: "Asia/Manila",
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -258,7 +389,7 @@ export default function AdminDashboard() {
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
-                setPage(1);
+                resetPaginationAndSelection();
               }}
               placeholder="Search records..."
               className="bg-admin-input border border-admin-border rounded-lg px-4 py-2 text-sm text-admin-text placeholder:text-admin-muted/50 focus:border-admin-gold outline-none w-64"
@@ -339,7 +470,7 @@ export default function AdminDashboard() {
         onChange={(e) => {
           setFilterField(e.target.value);
           setFilterValue("");
-          setPage(1);
+          resetPaginationAndSelection();
         }}
         className="w-full bg-admin-input border border-admin-border rounded-lg px-3 py-2 text-sm text-admin-text outline-none mb-2"
       >
@@ -355,7 +486,7 @@ export default function AdminDashboard() {
             value={filterValue}
             onChange={(e) => {
               setFilterValue(e.target.value);
-              setPage(1);
+              resetPaginationAndSelection();
             }}
             className="w-full bg-admin-input border border-admin-border rounded-lg px-3 py-2 text-sm text-admin-text outline-none"
           >
@@ -368,7 +499,7 @@ export default function AdminDashboard() {
             value={filterValue}
             onChange={(e) => {
               setFilterValue(e.target.value);
-              setPage(1);
+              resetPaginationAndSelection();
             }}
             className="w-full bg-admin-input border border-admin-border rounded-lg px-3 py-2 text-sm text-admin-text outline-none"
           >
@@ -385,12 +516,55 @@ export default function AdminDashboard() {
             value={filterValue}
             onChange={(e) => {
               setFilterValue(e.target.value);
-              setPage(1);
+              resetPaginationAndSelection();
             }}
             placeholder="Filter value..."
             className="w-full bg-admin-input border border-admin-border rounded-lg px-3 py-2 text-sm text-admin-text placeholder:text-admin-muted/50 outline-none"
           />
         )
+      )}
+
+      <div className="mt-3 space-y-2">
+        <div>
+          <label className="block text-xs text-slate-700 mb-1">From Date (PHT)</label>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => {
+              setDateFrom(e.target.value);
+              resetPaginationAndSelection();
+            }}
+            className="w-full bg-admin-input border border-admin-border rounded-lg px-3 py-1.5 text-xs text-admin-text outline-none focus:border-admin-gold"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-slate-700 mb-1">To Date (PHT)</label>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => {
+              setDateTo(e.target.value);
+              resetPaginationAndSelection();
+            }}
+            className="w-full bg-admin-input border border-admin-border rounded-lg px-3 py-1.5 text-xs text-admin-text outline-none focus:border-admin-gold"
+          />
+        </div>
+      </div>
+
+      {hasActiveFilters && (
+        <button
+          onClick={() => {
+            setSearch("");
+            setFilterField("");
+            setFilterValue("");
+            setDateFrom("");
+            setDateTo("");
+            resetPaginationAndSelection();
+          }}
+          className="bg-admin-bg w-full text-xs py-1.5 rounded border border-admin-border text-slate-700 hover:text-admin-gold transition-colors mt-2"
+        >
+          Clear Active Filters
+        </button>
       )}
     </div>
 
@@ -438,13 +612,65 @@ export default function AdminDashboard() {
 
           {/* Main content */}
           <div className="flex-1 p-6 overflow-auto">
+            {exportError && (
+              <div className="mb-4 bg-red-50 border border-red-300 text-red-800 px-4 py-3 rounded-lg text-sm flex items-center justify-between">
+                <span>⚠️ {exportError}</span>
+                <button onClick={() => setExportError("")} className="text-xs underline ml-4">
+                  Dismiss
+                </button>
+              </div>
+            )}
+
             {/* Records table */}
             <div className="bg-admin-panel opacity-85 border border-admin-border rounded-xl backdrop-blur-sm overflow-hidden">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-admin-border">
-                <h2 className="text-admin-gold font-semibold">
-                  Feedback Records
-                  <span className="text-admin-muted text-sm ml-2">({total} records)</span>
-                </h2>
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 px-6 py-4 border-b border-admin-border">
+                <div className="flex flex-wrap items-center gap-3">
+                  <h2 className="text-admin-gold font-semibold">
+                    Feedback Records
+                    <span className="text-admin-muted text-sm ml-2">({total} records)</span>
+                  </h2>
+                  {selectedIds.length > 0 && (
+                    <span className="inline-flex items-center gap-2 text-xs bg-blue-50 text-slate-800 border border-blue-200 rounded-full px-3 py-1 font-medium">
+                      {selectedIds.length} selected
+                      <button
+                        onClick={() => setSelectedIds([])}
+                        className="text-red-600 hover:underline font-semibold"
+                      >
+                        Clear
+                      </button>
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => handleExportExcel("selected")}
+                    disabled={selectedIds.length === 0 || exportingMode !== null}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-admin-border bg-admin-card text-admin-text hover:border-[#107C41] hover:bg-[#107C41]/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    title="Export selected checkbox entries to Excel (.xlsx)"
+                  >
+                    <ExcelIcon className="w-4 h-4" />
+                    {exportingMode === "selected" ? "Exporting..." : `Export Selected (${selectedIds.length})`}
+                  </button>
+                  <button
+                    onClick={() => handleExportExcel("filtered")}
+                    disabled={exportingMode !== null || loading}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-admin-border bg-admin-card text-admin-text hover:border-[#107C41] hover:bg-[#107C41]/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    title={`Export all ${total} record(s) matching active filters across all pages (.xlsx)`}
+                  >
+                    <ExcelIcon className="w-4 h-4" />
+                    {exportingMode === "filtered" ? "Exporting..." : `Export Filtered (${total})`}
+                  </button>
+                  <button
+                    onClick={() => handleExportExcel("all")}
+                    disabled={exportingMode !== null}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[#107C41] bg-[#107C41] text-white hover:bg-[#0c5e31] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    title="Export all feedback records in database regardless of active filters (.xlsx)"
+                  >
+                    <ExcelIcon className="w-4 h-4" />
+                    {exportingMode === "all" ? "Exporting..." : "Export All (.xlsx)"}
+                  </button>
+                </div>
               </div>
 
               {loading ? (
@@ -458,6 +684,17 @@ export default function AdminDashboard() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-admin-border text-admin-muted text-xs uppercase tracking-wider">
+                      <th className="w-10 px-4 py-3 text-center">
+                        <input
+                          ref={selectAllRef}
+                          type="checkbox"
+                          checked={allVisibleSelected}
+                          onChange={toggleSelectAllVisible}
+                          aria-label="Select all records on this page"
+                          title="Select all records on this page"
+                          className="w-4 h-4 rounded accent-[#122B4F] cursor-pointer"
+                        />
+                      </th>
                       <th className="text-left px-6 py-3">Name</th>
                       <th className="text-left px-4 py-3">Rating</th>
                       <th className="text-left px-4 py-3">Profession</th>
@@ -466,7 +703,9 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {records.map((record) => (
+                    {records.map((record) => {
+                      const isChecked = selectedIds.includes(record.id);
+                      return (
                       <tr
                         key={record.id}
                         onClick={() => {
@@ -476,9 +715,23 @@ export default function AdminDashboard() {
                         className={`border-b border-admin-border/50 cursor-pointer transition-colors ${
                           selectedRecord?.id === record.id
                             ? "bg-admin-selected"
+                            : isChecked
+                            ? "bg-blue-50/80 hover:bg-admin-hover/50"
                             : "hover:bg-admin-hover/50"
                         }`}
                       >
+                        <td
+                          className="w-10 px-4 py-3 text-center"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleSelectRecord(record.id)}
+                            aria-label={`Select feedback record from ${record.respondentName || "Anonymous"}`}
+                            className="w-4 h-4 rounded accent-[#122B4F] cursor-pointer"
+                          />
+                        </td>
                         <td className="px-6 py-3">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-admin-dark flex items-center justify-center text-admin-gold text-xs font-bold">
@@ -527,7 +780,8 @@ export default function AdminDashboard() {
                           </div>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               )}
@@ -753,7 +1007,7 @@ function FullRecordView({
 }) {
   const formatDate = (d: string) =>
     new Date(d).toLocaleDateString("en-PH", {
-      year: "numeric", month: "long", day: "numeric",
+      timeZone: "Asia/Manila", year: "numeric", month: "long", day: "numeric",
     });
 
   const starLabel = (v: number | null) => {
